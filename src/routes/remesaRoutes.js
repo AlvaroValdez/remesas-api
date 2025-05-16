@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createRemesa } = require('../controllers/remesaController');
+const { createRemesa, listRemesas } = require('../controllers/remesaController');
 
 // POST /api/remesas
 router.post('/', createRemesa);
