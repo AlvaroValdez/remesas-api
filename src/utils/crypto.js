@@ -1,23 +1,21 @@
-// src/utils/crypto.js
 const crypto = require('crypto');
 
-// Usa las mismas variables de .env que en tu signing-service
 const ALGORITHM = 'aes-256-cbc';
 const KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 const IV  = Buffer.from(process.env.ENCRYPTION_IV,  'hex');
 
 function encryptSecret(secret) {
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, IV);
-  let encrypted = cipher.update(secret, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return encrypted;
+  let enc = cipher.update(secret, 'utf8', 'hex');
+  enc += cipher.final('hex');
+  return enc;
 }
 
-function decryptSecret(encryptedHex) {
+function decryptSecret(encHex) {
   const decipher = crypto.createDecipheriv(ALGORITHM, KEY, IV);
-  let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  let dec = decipher.update(encHex, 'hex', 'utf8');
+  dec += decipher.final('utf8');
+  return dec;
 }
 
 module.exports = { encryptSecret, decryptSecret };
