@@ -1,9 +1,11 @@
+// src/routes/remesaRoutes.js
 const express = require('express');
-const router = express.Router();
 const { createRemesa, listRemesas } = require('../controllers/remesaController');
 
-// POST /api/remesas
+// Usa siempre Router de express, jamás require('router')
+const router = express.Router();
+
 router.post('/', createRemesa);
-router.get('/', listRemesas);
+router.get('/',  listRemesas);
 
 module.exports = router;
