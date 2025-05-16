@@ -2,6 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { encryptSecret } = require('../utils/crypto'); // función similar a tu decrypt, inversa
+const { encryptSecret, decryptSecret } = require('../utils/crypto');
+
 
 const prisma = new PrismaClient();
 
