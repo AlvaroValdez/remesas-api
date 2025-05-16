@@ -1,7 +1,10 @@
+// src/controllers/remesaController.js
+require('dotenv').config();
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// POST /api/remesas
 async function createRemesa(req, res) {
   const payloadFront = req.body;
   const n8nUrl = process.env.N8N_WEBHOOK_URL;
@@ -19,10 +22,10 @@ async function createRemesa(req, res) {
 
     console.log('▶️ Enviando a n8n:', n8nUrl, payloadN8n);
     const response = await axios.post(n8nUrl, payloadN8n);
-    console.log('✅ n8n respondió:', response.status);
+    console.log('✅ n8n respondió:', response.status, response.data);
     return res.status(response.status).json(response.data);
   } catch (err) {
-    console.error('createRemesa error:', {
+    console.error('❌ createRemesa error:', {
       message: err.message,
       status: err.response?.status,
       data: err.response?.data,
@@ -32,17 +35,23 @@ async function createRemesa(req, res) {
   }
 }
 
+// GET /api/remesas
 async function listRemesas(req, res) {
   try {
     const remesas = await prisma.transaccion.findMany({
       where: { userId: req.userId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
+    console.log('📄 listRemesas devuelve', remesas.length, 'elementos');
     return res.json(remesas);
   } catch (err) {
-    console.error('listRemesas error:', err);
+    console.error('❌ listRemesas error:', err);
     return res.status(500).json({ error: 'No se pudo obtener historial' });
   }
 }
 
-module.exports = { createRemesa, listRemesas };
+// IMPORTANTE: exporta **ambas** funciones
+module.exports = {
+  createRemesa,
+  listRemesas,
+};
