@@ -1,0 +1,27 @@
+// prisma/schema.prisma
+datasource db {
+  provider = "mysql"    // o "mysql" según tu BD
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  Int      @id @default(autoincrement())
+  email               String   @unique
+  publicKey           String
+  secretKeyEncrypted  String
+  createdAt           DateTime @default(now())
+}
+
+model Transaccion {
+  id           Int      @id @default(autoincrement())
+  monto        Float
+  commission   Float
+  montoConFee  Float
+  txHash       String   @map("tx_hash")
+  anchorId     String   @map("anchor_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+}
