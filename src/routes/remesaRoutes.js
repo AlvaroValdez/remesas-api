@@ -2,9 +2,9 @@
 const express = require('express');
 const { createRemesa, listRemesas } = require('../controllers/remesaController');
 
-// Usa siempre Router de express, jamás require('router')
 const router = express.Router();
 
+// Ahora **listRemesas** existe y es función
 router.post('/', createRemesa);
 router.get('/',  listRemesas);
 
