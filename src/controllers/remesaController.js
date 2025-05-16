@@ -37,4 +37,21 @@ async function createRemesa(req, res) {
   }
 }
 
+// GET /api/remesas
+async function listRemesas(req, res) {
+  try {
+    const userId = req.userId; // viene del middleware auth
+    const remesas = await prisma.transaccion.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.json(remesas);
+  } catch (err) {
+    console.error('❌ Error listando remesas:', err);
+    return res.status(500).json({ error: 'No se pudo obtener el historial' });
+  }
+}
+
+module.exports = { createRemesa, listRemesas };
+
 module.exports = { createRemesa };

@@ -1,6 +1,5 @@
-// prisma/schema.prisma
 datasource db {
-  provider = "mysql"    // o "mysql" según tu BD
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -9,19 +8,22 @@ generator client {
 }
 
 model User {
-  id                  Int      @id @default(autoincrement())
-  email               String   @unique
-  publicKey           String
-  secretKeyEncrypted  String
-  createdAt           DateTime @default(now())
+  id                 Int           @id @default(autoincrement())
+  email              String        @unique
+  publicKey          String
+  secretKeyEncrypted String
+  createdAt          DateTime      @default(now())
+  transacciones      Transaccion[]
 }
 
 model Transaccion {
-  id           Int      @id @default(autoincrement())
-  monto        Float
-  commission   Float
-  montoConFee  Float
-  txHash       String   @map("tx_hash")
-  anchorId     String   @map("anchor_id")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  monto       Float
+  commission  Float
+  montoConFee Float
+  txHash      String   @map("tx_hash")
+  anchorId    String   @map("anchor_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id])
 }
