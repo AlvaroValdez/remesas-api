@@ -9,6 +9,8 @@ const remesaRoutes = require('./routes/remesaRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
+//raiz
+app.get('/', (_req, res) => res.send('✅ remesas-api OK'));
 
 // Rutas públicas de auth
 app.use('/api/auth', authRoutes);

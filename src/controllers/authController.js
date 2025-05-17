@@ -5,29 +5,21 @@ const { Keypair } = require('stellar-sdk');
 
 const prisma = new PrismaClient();
 
+// src/controllers/authController.js
 async function register(req, res) {
   try {
     const { email, password } = req.body;
-    // Generar keypair
-    const userKp = Keypair.random();
-    const publicKey = userKp.publicKey();
-    const secretKey = userKp.secret();
-
-    // Opcional: podrías derivar o vincular password aquí
-    const secretKeyEncrypted = encryptSecret(secretKey);
-
-    const user = await prisma.user.create({
-      data: { email, publicKey, secretKeyEncrypted }
-    });
-
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-      expiresIn: '8h'
-    });
-
+    // ... generación de keypair y encryptSecret ...
+    const user = await prisma.user.create({ data: { email, publicKey, secretKeyEncrypted } });
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '8h' });
     return res.json({ token, publicKey });
   } catch (err) {
     console.error('register error:', err);
-    return res.status(400).json({ error: 'Registro fallido' });
+    // Si es clave duplicada en el campo email
+    if (err.code === 'P2002' && err.meta.target.includes('User_email_key')) {
+      return res.status(409).json({ error: 'El correo ya está registrado' });
+    }
+    return res.status(500).json({ error: 'Registro fallido' });
   }
 }
 
