@@ -15,7 +15,8 @@ if (!redisUrl) {
   throw new Error('No se encontró REDIS_PUBLIC_URL ni REDIS_URL en variables de entorno');
 }
 
-// Conexión Redis con opciones requeridas por BullMQ\ nconst redisConnection = new IORedis(redisUrl, {
+// Conexión Redis con opciones requeridas por BullMQ
+const redisConnection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
   enableOfflineQueue: true
 });
