@@ -11,6 +11,6 @@ const router = express.Router();
 
 // Aquí router.post y router.get **reciben** funciones válidas
 router.post('/', createRemesa);
-router.get('/',  listRemesas);
+router.get('/:jobId', getRemesaStatus);
 
 module.exports = router;
