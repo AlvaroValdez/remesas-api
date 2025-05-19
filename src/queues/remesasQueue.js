@@ -9,10 +9,14 @@ const { URLSearchParams } = require('url');
 // Cliente Prisma
 const prisma = new PrismaClient();
 
-// Conexión Redis con opción requerida por BullMQ
-const redisConnection = new IORedis(process.env.REDIS_URL, {
+// Elige la URL pública de Redis si existe, sino REDIS_URL
+const redisUrl = process.env.REDIS_PUBLIC_URL || process.env.REDIS_URL;
+if (!redisUrl) {
+  throw new Error('No se encontró REDIS_PUBLIC_URL ni REDIS_URL en variables de entorno');
+}
+
+// Conexión Redis con opciones requeridas por BullMQ\ nconst redisConnection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
-  // opcional: disable offline queue si lo deseas
   enableOfflineQueue: true
 });
 
