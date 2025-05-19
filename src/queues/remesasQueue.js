@@ -1,17 +1,20 @@
 // src/queues/remesasQueue.js
 const { Queue, Worker, Job } = require('bullmq');
+const IORedis = require('ioredis');        
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const { URLSearchParams } = require('url');
 
 const prisma = new PrismaClient();
 const queueName = 'remesas';
+
+// I) Crea un cliente Redis apuntando a REDIS_URL
 const connection = { connection: { url: process.env.REDIS_URL } };
 
-// Instancia la cola donde encolamos los trabajos de remesas
+// II) Instancia la cola usando esa conexión
 const remesasQueue = new Queue(queueName, connection);
 
-// Worker: procesa cada job
+// III) Crea el Worker con la misma conexión
 new Worker(
   queueName,
   async job => {
