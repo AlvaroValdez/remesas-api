@@ -1,5 +1,5 @@
 // src/queues/remesasQueue.js
-const { Queue, Worker } = require('bullmq');
+const { Queue, Worker, Job } = require('bullmq');
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const { URLSearchParams } = require('url');
@@ -8,7 +8,8 @@ const prisma = new PrismaClient();
 const queueName = 'remesas';
 const connection = { connection: { url: process.env.REDIS_URL } };
 
-// Instancia la cola donde encolamos los trabajos de remesas\ nconst remesasQueue = new Queue(queueName, connection);
+// Instancia la cola donde encolamos los trabajos de remesas
+const remesasQueue = new Queue(queueName, connection);
 
 // Worker: procesa cada job
 new Worker(
@@ -76,15 +77,15 @@ new Worker(
         commission,
         montoConFee,
         txHash,
-        anchorId,
+        anchorId
       }
     });
 
     // Devuelve resultado si lo precisas
     return {
-      tx_hash:   record.txHash,
+      tx_hash: record.txHash,
       commission: record.commission,
-      anchor_id: record.anchorId,
+      anchor_id: record.anchorId
     };
   },
   connection
