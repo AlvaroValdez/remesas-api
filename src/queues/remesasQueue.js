@@ -1,66 +1,93 @@
 // src/queues/remesasQueue.js
-const { Queue, Worker, Job } = require('bullmq');
-const IORedis = require('ioredis');
+const { Queue, Worker } = require('bullmq');
+const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
+const { URLSearchParams } = require('url');
 
-// Conexión desde REDIS_URL
-const connection = new IORedis(process.env.REDIS_URL);
+const prisma = new PrismaClient();
+const queueName = 'remesas';
+const connection = { connection: { url: process.env.REDIS_URL } };
 
-// La cola donde encolamos las remesas
-const remesasQueue = new Queue('remesas', { connection });
+// Instancia la cola donde encolamos los trabajos de remesas\ nconst remesasQueue = new Queue(queueName, connection);
 
-// Worker: procesa cada job en secuencia
-new Worker('remesas', async job => {
-  const { userId, monto, cuenta_destino, memo } = job.data;
-  
-  // 1) Calcular comisión
-  const feeRate      = 0.03;
-  const commission   = monto * feeRate;
-  const montoConFee  = monto + commission;
+// Worker: procesa cada job
+new Worker(
+  queueName,
+  async job => {
+    const { userId, monto, cuenta_destino, memo } = job.data;
 
-  // 2) Generar XDR
-  const { data: { xdr }} = await axios.post(
-    process.env.XDR_SERVICE_URL,
-    { source: /* tu lógica */, destination: cuenta_destino, amount: montoConFee, memo, network: 'testnet' }
-  );
+    // 1) Recupera la publicKey del usuario
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { publicKey: true }
+    });
+    if (!user) throw new Error(`Usuario ${userId} no encontrado`);
+    const source = user.publicKey;
 
-  // 3) Firmar XDR
-  const { data: { signedXdr }} = await axios.post(
-    process.env.SIGNING_SERVICE_URL,
-    { xdr }
-  );
+    // 2) Cálculo de comisión
+    const feeRate = 0.03;
+    const commission = parseFloat((monto * feeRate).toFixed(2));
+    const montoConFee = parseFloat((monto + commission).toFixed(2));
 
-  // 4) Enviar a Horizon
-  const txResponse = await axios.post(
-    process.env.HORIZON_URL,
-    new URLSearchParams({ tx: signedXdr }).toString(),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-  );
+    // 3) Generar XDR
+    const { data: xdrResp } = await axios.post(
+      process.env.XDR_SERVICE_URL,
+      {
+        source,
+        destination: cuenta_destino,
+        amount: montoConFee,
+        memo,
+        network: 'testnet'
+      },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    const { xdr } = xdrResp;
 
-  // 5) Deposit via Anchor
-  const { data: deposit } = await axios.post(
-    process.env.ANCHOR_DEPOSIT_URL,
-    { asset_code: 'CLP', account: cuenta_destino, amount: montoConFee },
-    { headers: { Authorization: `Bearer ${process.env.ANCHOR_TOKEN}` } }
-  );
+    // 4) Firmar XDR
+    const { data: signResp } = await axios.post(
+      process.env.SIGNING_SERVICE_URL,
+      { xdr },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    const { signedXdr } = signResp;
 
-  // 6) Persistir en BD
-  const record = await prisma.transaccion.create({
-    data: {
-      userId,
-      monto,
-      commission,
-      montoConFee,
-      txHash:   txResponse.data.hash,
-      anchorId: deposit.deposit_id,
-    }
-  });
+    // 5) Enviar a Horizon
+    const form = new URLSearchParams({ tx: signedXdr }).toString();
+    const { data: horizonResp } = await axios.post(
+      process.env.HORIZON_URL,
+      form,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    const txHash = horizonResp.hash;
 
-  // Devuelve resultado al cliente si lo desea
-  return {
-    tx_hash:   record.txHash,
-    commission,
-    anchor_id: record.anchorId,
-  };
-}, { connection });
+    // 6) Deposit a través del Anchor
+    const { data: anchorResp } = await axios.post(
+      process.env.ANCHOR_DEPOSIT_URL,
+      { asset_code: 'CLP', account: cuenta_destino, amount: montoConFee },
+      { headers: { Authorization: `Bearer ${process.env.ANCHOR_TOKEN}`, 'Content-Type': 'application/json' } }
+    );
+    const anchorId = anchorResp.deposit_id;
+
+    // 7) Persistir en BD
+    const record = await prisma.transaccion.create({
+      data: {
+        userId,
+        monto,
+        commission,
+        montoConFee,
+        txHash,
+        anchorId,
+      }
+    });
+
+    // Devuelve resultado si lo precisas
+    return {
+      tx_hash:   record.txHash,
+      commission: record.commission,
+      anchor_id: record.anchorId,
+    };
+  },
+  connection
+);
 
 module.exports = remesasQueue;

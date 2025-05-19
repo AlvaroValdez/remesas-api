@@ -7,11 +7,14 @@ async function createRemesa(req, res) {
   const userId = req.userId;
 
   // Añade el job y devuelve el ID al front
-  const job = await remesasQueue.add('procesar', {
-    userId, monto, cuenta_destino, memo
-  });
+ const job = await remesasQueue.add('procesar', {
+  userId: req.userId,
+  monto,
+  cuenta_destino,
+  memo
+});
+return res.json({ jobId: job.id });
 
-  return res.json({ jobId: job.id, status: 'queued' });
 }
 
 // Opcional: endpoint para chequear estado
