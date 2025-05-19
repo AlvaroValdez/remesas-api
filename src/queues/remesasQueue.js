@@ -9,7 +9,9 @@ const prisma = new PrismaClient();
 const queueName = 'remesas';
 
 // I) Crea un cliente Redis apuntando a REDIS_URL
-const connection = { connection: { url: process.env.REDIS_URL } };
+//const connection = { connection: { url: process.env.REDIS_URL } };
+const connection = new IORedis(process.env.REDIS_URL);
+
 
 // II) Instancia la cola usando esa conexión
 const remesasQueue = new Queue(queueName, connection);
