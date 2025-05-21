@@ -5,6 +5,7 @@ const cors    = require('cors');
 const authRoutes   = require('./routes/authRoutes');
 const auth         = require('./middleware/auth');
 const remesaRoutes = require('./routes/remesaRoutes');
+const anchorRoutes = require('./routes/anchorRoutes');
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,14 @@ app.use('/api/auth', authRoutes);
 
 // Rutas protegidas de remesas (requieren JWT)
 app.use('/api/remesas', auth, remesaRoutes);
+
+// Rutas de Anchor SEP-24
+app.use('/api/anchor', anchorRoutes);
+
+// Inicia servidor
+app.listen(PORT, () => {
+  console.log(`🚀 remesas-api corriendo en http://localhost:${PORT}`);
+});
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
