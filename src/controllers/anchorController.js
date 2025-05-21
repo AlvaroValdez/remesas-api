@@ -1,27 +1,29 @@
 // src/controllers/anchorController.js
 require('dotenv').config();
 const axios = require('axios');
-//const { initDeposit, handleDepositCallback } = require('../controllers/anchorController');
+const { PrismaClient } = require('@prisma/client');
+const remesasQueue = require('../queues/remesasQueue');
 
+const prisma = new PrismaClient();
 
 // POST /api/anchor/deposit
 async function initDeposit(req, res) {
   try {
     const { amount, assetCode } = req.body;
-    const userId = req.userId;       // middleware de auth ya puso req.userId
+    const userId = req.userId;
+
     if (!amount || !assetCode) {
       return res.status(400).json({ error: 'Faltan campos: amount, assetCode' });
     }
 
-    // Prepara el payload SEP-24
+    // Construir payload SEP-24
     const payload = {
-      account_id: req.userPublicKey,  // tu middleware debe exponer la publicKey
+      account_id: req.userPublicKey,
       asset_code: assetCode,
       amount: amount.toString(),
-      // opcional: memo, dest_extra, etc.
     };
 
-    // Llama al Anchor
+    // Llamada al Anchor SEP-24
     const response = await axios.post(
       process.env.ANCHOR_DEPOSIT_URL,
       payload,
@@ -33,15 +35,50 @@ async function initDeposit(req, res) {
       }
     );
 
-    // Devuelve al front la URL con la que el usuario completará el depósito
     const { url, id, ...rest } = response.data;
     return res.json({ url, id, ...rest });
   } catch (err) {
     console.error('initDeposit error:', err.response?.data || err.message);
     const status = err.response?.status || 500;
-    const msg    = err.response?.data?.error || 'Error iniciando depósito';
+    const msg = err.response?.data?.error || 'Error iniciando depósito';
     return res.status(status).json({ error: msg });
   }
 }
 
-module.exports = { initDeposit };
+// POST /api/anchor/callback
+async function handleDepositCallback(req, res) {
+  try {
+    const callbackData = req.body;
+    console.log('Anchor deposit callback recibida:', callbackData);
+
+    const { id, status, amount, account_id } = callbackData;
+    if (status !== 'completed') {
+      return res.status(200).send('Callback recibido');
+    }
+
+    // Buscar usuario por publicKey
+    const user = await prisma.user.findUnique({
+      where: { publicKey: account_id },
+      select: { id: true }
+    });
+    if (!user) {
+      console.warn(`Usuario con publicKey ${account_id} no encontrado`);
+      return res.status(404).send('User not found');
+    }
+
+    // Encolar job para procesar on-chain
+    await remesasQueue.add('procesar', {
+      userId: user.id,
+      monto: Number(amount),
+      cuenta_destino: callbackData.destination_account || account_id,
+      memo: id
+    });
+
+    return res.status(200).send('Encolado');
+  } catch (err) {
+    console.error('handleDepositCallback error:', err);
+    return res.status(500).send('Error interno');
+  }
+}
+
+module.exports = { initDeposit, handleDepositCallback };
