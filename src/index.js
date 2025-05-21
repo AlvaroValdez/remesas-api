@@ -22,11 +22,6 @@ app.use('/api/remesas', auth, remesaRoutes);
 // Rutas de Anchor SEP-24
 app.use('/api/anchor', anchorRoutes);
 
-// Inicia servidor
-app.listen(PORT, () => {
-  console.log(`🚀 remesas-api corriendo en http://localhost:${PORT}`);
-});
-
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`🚀 remesas-api corriendo en http://localhost:${PORT}`);
