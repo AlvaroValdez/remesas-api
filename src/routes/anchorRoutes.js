@@ -7,5 +7,7 @@ const router = express.Router();
 
 // Iniciar depósito (On-Ramp) SEP-24
 router.post('/deposit', authenticate, initDeposit);
+router.post('/callback', express.json(), handleDepositCallback);
+
 
 module.exports = router;

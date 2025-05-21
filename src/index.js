@@ -22,7 +22,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/remesas', authenticate, remesaRoutes);
 
 // Protected Anchor SEP-24 routes (JWT required)
-app.use('/api/anchor', authenticate, anchorRoutes);
+//app.use('/api/anchor', authenticate, anchorRoutes);
+
+app.use('/api/anchor', anchorRoutes);
 
 // Start server
 const PORT = process.env.PORT || 4000;

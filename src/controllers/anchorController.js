@@ -1,6 +1,8 @@
 // src/controllers/anchorController.js
 require('dotenv').config();
 const axios = require('axios');
+const { initDeposit, handleDepositCallback } = require('../controllers/anchorController');
+
 
 // POST /api/anchor/deposit
 async function initDeposit(req, res) {
