@@ -7,66 +7,60 @@ const { Keypair } = require('stellar-sdk');
 
 const prisma = new PrismaClient();
 
+const bcrypt = require('bcrypt');
 async function register(req, res) {
   try {
-    const { email, password } = req.body; // no usas password para Stellar, solo para auth
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Faltan email o contraseña' });
+    }
 
-    // 1) Genera un nuevo Keypair Stellar
-    const userKp   = Keypair.random();
-    const newPublicKey = userKp.publicKey();
-    const newSecretKey = userKp.secret();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'El usuario ya existe' });
+    }
 
-    // 2) Encripta la secret key
-    const secretKeyEncrypted = encryptSecret(newSecretKey);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userKp = Keypair.random();
 
-    // 3) Guarda en la BD
     const user = await prisma.user.create({
       data: {
         email,
-        publicKey: newPublicKey,
-        secretKeyEncrypted
+        passwordHashed: hashedPassword,
+        publicKey: userKp.publicKey(),
+        secretKeyEncrypted: encryptSecret(userKp.secret())
       }
     });
 
-    // 4) Genera el JWT
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token, publicKey: user.publicKey });
 
-    return res.json({ token, publicKey: newPublicKey });
   } catch (err) {
-    console.error('register error:', err);
-    if (err.code === 'P2002' && err.meta?.target?.includes('User_email_key')) {
-      return res.status(409).json({ error: 'El correo ya está registrado' });
-    }
-    return res.status(500).json({ error: 'Registro fallido' });
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Error en el registro' });
   }
 }
 
 async function login(req, res) {
   try {
     const { email, password } = req.body;
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(401).json({ error: 'Usuario no encontrado' });
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    // (Aquí podrías verificar password si lo guardas)
-    // Desencripta la secret key (aunque no la devolvemos al front)
-    const secretKey = decryptSecret(user.secretKeyEncrypted);
+    const isValid = await bcrypt.compare(password, user.passwordHashed);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
 
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-    return res.json({ token, publicKey: user.publicKey });
+    res.json({ token, publicKey: user.publicKey });
   } catch (err) {
-    console.error('login error:', err);
-    return res.status(500).json({ error: 'Error interno' });
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Error en el login' });
   }
 }
 
