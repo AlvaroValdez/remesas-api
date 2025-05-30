@@ -1,13 +1,13 @@
-// src/controllers/authController.js
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
-const jwt     = require('jsonwebtoken');
-const { encryptSecret, decryptSecret } = require('../utils/crypto');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const { encryptSecret } = require('../utils/crypto');
 const { Keypair } = require('stellar-sdk');
 
 const prisma = new PrismaClient();
 
-const bcrypt = require('bcrypt');
+// Registro de usuario
 async function register(req, res) {
   try {
     const { email, password } = req.body;
@@ -41,6 +41,7 @@ async function register(req, res) {
   }
 }
 
+// Login de usuario
 async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -56,8 +57,8 @@ async function login(req, res) {
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
     res.json({ token, publicKey: user.publicKey });
+
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Error en el login' });
