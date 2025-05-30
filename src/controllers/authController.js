@@ -65,4 +65,28 @@ async function login(req, res) {
   }
 }
 
+//Identificar al usuario autenticado a partir de token JWT
+async function me(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: {
+        id: true,
+        email: true,
+        publicKey: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error('Error en /me:', err);
+    res.status(500).json({ error: 'Error al obtener usuario' });
+  }
+}
+
 module.exports = { register, login };
