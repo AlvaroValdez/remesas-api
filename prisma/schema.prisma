@@ -8,13 +8,14 @@ generator client {
 }
 
 model User {
-  id                 Int           @id @default(autoincrement())
-  email              String        @unique
+  id                 Int              @id @default(autoincrement())
+  email              String           @unique
   passwordHashed     String
   publicKey          String
   secretKeyEncrypted String
-  createdAt          DateTime      @default(now())
+  createdAt          DateTime         @default(now())
   transacciones      Transaccion[]
+  refreshTokens      RefreshToken[]   
 }
 
 model Transaccion {
