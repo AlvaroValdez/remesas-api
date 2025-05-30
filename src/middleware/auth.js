@@ -8,22 +8,18 @@ const prisma = new PrismaClient();
   async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
+    console.warn('[AUTH FAIL] Token ausente');
     return res.status(401).json({ error: 'Token requerido' });
   }
+
   const token = authHeader.split(' ')[1];
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    // Recupera usuario y su publicKey
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) {
-      return res.status(401).json({ error: 'Usuario no encontrado' });
-    }
-    req.userId = user.id;
-    req.userPublicKey = user.publicKey;
+    req.userId = payload.userId;
     next();
   } catch (err) {
-    console.error('Auth error:', err);
+    console.warn('[AUTH FAIL] Token inválido:', err.message);
     return res.status(401).json({ error: 'Token inválido' });
   }
 }

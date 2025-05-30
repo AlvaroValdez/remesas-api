@@ -1,92 +1,103 @@
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const { encryptSecret } = require('../utils/crypto');
-const { Keypair } = require('stellar-sdk');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// Registro de usuario
-async function register(req, res) {
+const ACCESS_TOKEN_EXPIRATION = '15m';
+const REFRESH_TOKEN_EXPIRATION_DAYS = 7;
+
+function generateAccessToken(userId) {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRATION });
+}
+
+function generateRefreshToken() {
+  return crypto.randomUUID();
+}
+
+//Login
+async function login(req, res) {
+  const { email, password } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Faltan email o contraseña' });
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || !(await bcrypt.compare(password, user.passwordHashed))) {
+      await prisma.loginAttempt.create({ data: { email, ip, success: false } });
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ error: 'El usuario ya existe' });
-    }
+    await prisma.loginAttempt.create({ data: { email, ip, success: true } });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userKp = Keypair.random();
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken();
 
-    const user = await prisma.user.create({
+    // Guardar en la base de datos
+    await prisma.refreshToken.create({
       data: {
-        email,
-        passwordHashed: hashedPassword,
-        publicKey: userKp.publicKey(),
-        secretKeyEncrypted: encryptSecret(userKp.secret())
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60 * 1000)
       }
     });
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token, publicKey: user.publicKey });
+    // Enviar refreshToken como cookie httpOnly
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60 * 1000
+    });
+
+    res.json({ accessToken, publicKey: user.publicKey });
 
   } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Error en el registro' });
-  }
-}
-
-// Login de usuario
-async function login(req, res) {
-  try {
-    const { email, password } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-
-    const isValid = await bcrypt.compare(password, user.passwordHashed);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token, publicKey: user.publicKey });
-
-  } catch (err) {
-    console.error('Login error:', err);
+    console.error('[LOGIN ERROR]', err);
     res.status(500).json({ error: 'Error en el login' });
   }
-}
 
-//Identificar al usuario autenticado a partir de token JWT
-async function me(req, res) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        id: true,
-        email: true,
-        publicKey: true,
-        createdAt: true
-      }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+  async function refresh(req, res) {
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({ error: 'Refresh token requerido' });
     }
 
-    res.json(user);
-  } catch (err) {
-    console.error('Error en /me:', err);
-    res.status(500).json({ error: 'Error al obtener usuario' });
+    try {
+      const stored = await prisma.refreshToken.findUnique({ where: { token } });
+      if (!stored || stored.expiresAt < new Date()) {
+        return res.status(403).json({ error: 'Refresh token inválido o expirado' });
+      }
+
+      const newAccessToken = generateAccessToken(stored.userId);
+      res.json({ accessToken: newAccessToken });
+
+    } catch (err) {
+      console.error('[REFRESH ERROR]', err);
+      res.status(500).json({ error: 'No se pudo renovar token' });
+    }
+  }
+  //Logout
+  async function logout(req, res) {
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(200).json({ message: 'Sesión cerrada' }); // nada que borrar
+    }
+
+    try {
+      await prisma.refreshToken.delete({ where: { token } });
+    } catch (err) {
+      console.warn('[LOGOUT WARNING] Token no encontrado o ya eliminado');
+      // continúa para limpiar cookie
+    }
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict'
+    });
+
+    res.status(200).json({ message: 'Sesión cerrada correctamente' });
   }
 }
-
-module.exports = { register, login, me };

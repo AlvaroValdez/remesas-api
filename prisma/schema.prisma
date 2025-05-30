@@ -28,3 +28,20 @@ model Transaccion {
   createdAt   DateTime @default(now()) @map("created_at")
   user        User     @relation(fields: [userId], references: [id])
 }
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String
+  ip        String
+  success   Boolean
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}

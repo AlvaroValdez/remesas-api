@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const cookieParser = require('cookie-parser');
 
 const authRoutes   = require('./routes/authRoutes');
 const { authenticate } = require('./middleware/auth');
@@ -11,6 +12,7 @@ const anchorRoutes = require('./routes/anchorRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Health check
 app.get('/', (_req, res) => res.send('✅ remesas-api OK'));
