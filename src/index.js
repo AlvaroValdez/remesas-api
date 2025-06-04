@@ -10,7 +10,13 @@ const remesaRoutes = require('./routes/remesaRoutes');
 const anchorRoutes = require('./routes/anchorRoutes');
 
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+  origin: ['https://miapp.netlify.app', 'http://localhost:3000'], // o localhost para pruebas
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -29,5 +35,5 @@ app.use('/api/anchor', authenticate, anchorRoutes);
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`🚀 remesas-api corriendo en http://localhost:${PORT}`);
+  console.log(`Remesas-api corriendo en http://localhost:${PORT}`);
 });

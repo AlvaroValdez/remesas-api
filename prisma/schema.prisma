@@ -39,10 +39,10 @@ model LoginAttempt {
 }
 
 model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  expiresAt DateTime
+  id         Int      @id @default(autoincrement())
+  token      String
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
 }
