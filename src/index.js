@@ -12,9 +12,13 @@ const anchorRoutes = require('./routes/anchorRoutes');
 const app = express();
 
 const corsOptions = {
-  origin: ['https://miapp.netlify.app', 'http://localhost:3000'], // o localhost para pruebas
+  origin: [
+    'https://miapp.netlify.app', // alojar app en bluehost
+    'http://localhost:3003'  // este es local
+  ],
   credentials: true
 };
+
 
 app.use(cors(corsOptions));
 app.use(express.json());
