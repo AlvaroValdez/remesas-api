@@ -14,6 +14,7 @@ const app = express();
 const corsOptions = {
   origin: [
     'https://miapp.netlify.app', // alojar app en bluehost
+    'http://localhost:3000',
     'http://localhost:3003'  // este es local
   ],
   credentials: true
