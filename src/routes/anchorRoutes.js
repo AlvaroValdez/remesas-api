@@ -1,14 +1,13 @@
-// src/routes/anchorRoutes.js
 const express = require('express');
-const { initDeposit, handleDepositCallback } = require('../controllers/anchorController');
+const { register, login, me, refresh, logout } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Iniciar depósito (On-Ramp) SEP-24
-router.post('/deposit', authenticate, initDeposit);
-
-// Callback del Anchor (sin auth, recibe webhook)
-router.post('/callback', express.json(), handleDepositCallback);
+router.post('/register', register);
+router.post('/login', login);
+router.post('/refresh', refresh);
+router.post('/logout', logout);
+router.get('/me', authenticate, me);
 
 module.exports = router;
