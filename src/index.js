@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
+// Asegurarnos de arrancar el Worker de remesas al iniciar la app:
+require('./queues/remesasQueue');
 // Rutas y middlewares
 const authRoutes = require('./routes/authRoutes');
 const remesaRoutes = require('./routes/remesaRoutes');
