@@ -39,7 +39,7 @@ new Worker(
 
       // 2) Llamar a stellar-xdr-service para generar XDR
       const xdrResp = await axios.post(
-        `${process.env.XDR_SERVICE_URL}/generate`,
+        `${process.env.XDR_SERVICE_URL}/generate-xdr`,
         {
           source: user.publicKey,
           destination: cuenta_destino,
