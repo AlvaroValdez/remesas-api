@@ -8,7 +8,7 @@ async function authenticate(req, res, next) {
   }
   const token = authHeader.split(' ')[1]; // toma solo la segunda parte
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.SECRET_JWT);
     req.userId = payload.userId;
     next();
   } catch {

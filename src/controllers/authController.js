@@ -13,7 +13,7 @@ const ACCESS_TOKEN_EXPIRATION = '15m';
 const REFRESH_TOKEN_EXPIRATION_DAYS = 7;
 
 function generateAccessToken(userId) {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRATION });
+  return jwt.sign({ userId }, process.env.SECRET_JWT, { expiresIn: ACCESS_TOKEN_EXPIRATION });
 }
 
 function generateRefreshToken() {
