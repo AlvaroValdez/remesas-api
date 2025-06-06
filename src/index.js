@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const { authenticate } = require('./middleware/auth');
 
 // Asegurarnos de arrancar el Worker de remesas al iniciar la app:
 require('./queues/remesasQueue');
@@ -9,7 +10,6 @@ require('./queues/remesasQueue');
 const authRoutes = require('./routes/authRoutes');
 const remesaRoutes = require('./routes/remesaRoutes');
 const anchorRoutes = require('./routes/anchorRoutes');
-const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
