@@ -39,7 +39,7 @@ app.use('/api/remesas', authenticate, remesaRoutes);
 app.use('/api/anchor', authenticate, anchorRoutes);
 
 // ————— Iniciar servidor ————————————————————————————————————
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Remesas-api corriendo en http://localhost:${PORT}`);
 });

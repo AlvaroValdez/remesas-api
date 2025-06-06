@@ -1,30 +1,29 @@
-// src/controllers/remesaController.js
-const { PrismaClient } = require('@prisma/client');
 const remesasQueue = require('../queues/remesasQueue');
-const IORedis = require('ioredis');
 
-const prisma = new PrismaClient();
-
+// Encola la remesa para el usuario autenticado (req.userId)
 async function createRemesa(req, res) {
   try {
     const monto = Number(req.body.monto);
     if (isNaN(monto) || monto <= 0) {
-      return res.status(400).json({ error: 'El monto debe ser un número mayor que 0' });
+      return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
     }
-
     const cuenta_destino = req.body.cuenta_destino;
     if (!cuenta_destino) {
       return res.status(400).json({ error: 'Falta cuenta_destino' });
     }
-
     const memo = req.body.memo || '';
+    // Posibilidad de recibir assetCode y assetIssuer en el body:
+    const assetCode = req.body.assetCode || 'XLM';
+    const assetIssuer = req.body.assetIssuer || null;
 
-    // Encolar el job en BullMQ
+    // Encolar job en BullMQ
     const job = await remesasQueue.add('nueva-remesa', {
       userId: req.userId,
       monto,
       cuenta_destino,
-      memo
+      memo,
+      assetCode,
+      assetIssuer
     });
 
     console.log('[Controller] Job encolado con ID:', job.id);
@@ -35,6 +34,7 @@ async function createRemesa(req, res) {
   }
 }
 
+// Lista todas las transacciones que pertenezcan al usuario (req.userId)
 async function listRemesas(req, res) {
   try {
     const remesas = await prisma.transaccion.findMany({
@@ -48,16 +48,17 @@ async function listRemesas(req, res) {
   }
 }
 
+// Devuelve estado (wait, active, completed, failed) de un job en BullMQ
 async function getRemesaStatus(req, res) {
   try {
     const jobId = req.params.jobId;
     const { Worker } = require('bullmq');
+    const IORedis = require('ioredis');
     const worker = new Worker(
       'remesas',
-      () => {}, // callback vacío porque solo queremos consultar el estado
+      () => {},
       { connection: new IORedis(process.env.REDIS_URL) }
     );
-
     const job = await worker.getJob(jobId);
     const state = job ? await job.getState() : 'not_found';
     return res.json({ jobId, state });
@@ -67,8 +68,4 @@ async function getRemesaStatus(req, res) {
   }
 }
 
-module.exports = {
-  createRemesa,
-  listRemesas,
-  getRemesaStatus
-};
+module.exports = { createRemesa, listRemesas, getRemesaStatus };
