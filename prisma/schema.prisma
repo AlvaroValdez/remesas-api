@@ -20,6 +20,7 @@ model User {
 
 model Transaccion {
   id          Int      @id @default(autoincrement())
+  jobId       Int
   userId      Int
   monto       Float
   commission  Float
@@ -27,9 +28,12 @@ model Transaccion {
   txHash      String   @map("tx_hash")
   anchorId    String   @map("anchor_id")
   createdAt   DateTime @default(now()) @map("created_at")
-  user        User     @relation(fields: [userId], references: [id])
-}
 
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([jobId, userId])
+}
+  
 model LoginAttempt {
   id        Int      @id @default(autoincrement())
   email     String

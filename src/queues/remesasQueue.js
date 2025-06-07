@@ -17,7 +17,7 @@ const {
 if (!REDIS_URL) throw new Error('REDIS_URL no definido');
 if (!XDR_SERVICE_URL) throw new Error('XDR_SERVICE_URL no definido');
 if (!SIGNING_SERVICE_URL) throw new Error('SIGNING_SERVICE_URL no definido');
-if (!ANCHOR_SERVICE_URL) throw new Error('ANCHOR_DEPOSIT_URL no definido');
+if (!ANCHOR_SERVICE_URL) throw new Error('ANCHOR_SERVICE_URL no definido');
 if (!ANCHOR_TOKEN) throw new Error('ANCHOR_TOKEN no definido');
 
 // Inicializa Redis y la cola
