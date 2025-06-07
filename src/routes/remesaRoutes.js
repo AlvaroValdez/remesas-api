@@ -4,7 +4,7 @@ const express = require('express');
 const {
   createRemesa,
   listRemesas,
-  getRemesaStatus
+  getRemesaStatus 
 } = require('../controllers/remesaController');
 
 const router = express.Router();

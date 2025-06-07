@@ -1,72 +1,88 @@
 // src/controllers/remesaController.js
-const { generateTransactionXdr } = require('../services/stellarXdrClient');
-const { signXdr } = require('../services/stellarSigningClient');
-const { submitToNetwork } = require('../services/stellarSubmitClient');
-// submitToNetwork sería un servicio que envía el XDR firmado a Horizon (usando tu propio Horizon client o Stellar SDK)
 
+require('dotenv').config();
+const remesasQueue = require('../queues/remesasQueue');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+/**
+ * POST /api/remesas
+ * Encola un job para procesar una remesa.
+ */
 async function createRemesa(req, res, next) {
-  const userToken = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  if (!userToken) {
-    return res.status(401).json({ error: 'Falta token de autorización' });
-  }
-
   try {
-    // 1. Extraer del body la data de la remesa que necesitamos para generar XDR
-    const { sourcePublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = req.body;
-    if (!sourcePublicKey || !destinationPublicKey || !assetCode || !amount) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios en solicitud' });
+    const userId = req.userId; // set por middleware authenticate
+    const { cuenta_destino, monto, memo, assetCode, assetIssuer } = req.body;
+
+    if (!cuenta_destino || monto === undefined) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios: cuenta_destino, monto' });
     }
 
-    // 2. Preparar el payload para el XDR Service
-    const operations = [
-      {
-        type: 'payment',
-        destination: destinationPublicKey,
-        asset: {
-          code: assetCode,
-          issuer: assetCode === 'XLM' ? null : assetIssuer,
-        },
-        amount: amount.toString(),
-      },
-    ];
-    const xdrPayload = { sourcePublicKey, memo, operations };
+    // Encolamos el job en la cola "remesas"
+    const job = await remesasQueue.add('procesar', {
+      userId,
+      monto: Number(monto),
+      cuenta_destino,
+      memo: memo || '',
+      assetCode,
+      assetIssuer
+    });
 
-    // 3. Llamar a stellar-xdr-service
-    const xdr = await generateTransactionXdr(userToken, xdrPayload);
-
-    // 4. Enviar el XDR al stellar-signing-service para firmarlo
-    const signedXdr = await signXdr(userToken, xdr);
-
-    // 5. (Opcional) Subir el XDR firmado a Horizon y obtener el hash de la transacción
-    //    Puedes usar Stellar SDK o tu propio servicio. Ejemplo con función submitToNetwork:
-    // const submitResponse = await submitToNetwork(signedXdr);
-
-    // 6. Guardar en base de datos la información de la remesa (puedes hacerlo aquí o después del envío real)
-    //    Ejemplo simplificado:
-    // const nuevaRemesa = await RemesaModel.create({
-    //   userId: req.user.id,
-    //   sourcePublicKey,
-    //   destinationPublicKey,
-    //   assetCode,
-    //   assetIssuer,
-    //   amount,
-    //   memo,
-    //   xdrUnsigned: xdr,
-    //   xdrSigned: signedXdr,
-    //   status: 'pending',
-    //   txHash: submitResponse.hash
-    // });
-
-    // 7. Responder al cliente con el resultado
-    return res.status(201).json({
-      message: 'Remesa creada exitosamente',
-      xdrUnsigned: xdr,
-      xdrSigned: signedXdr,
-      // txHash: submitResponse.hash
+    return res.status(202).json({
+      message: 'Remesa encolada para procesamiento',
+      jobId: job.id
     });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 
-module.exports = { createRemesa };
+/**
+ * GET /api/remesas
+ * Devuelve todas las remesas procesadas (o en proceso) del usuario.
+ */
+async function listRemesas(req, res, next) {
+  try {
+    const userId = req.userId;
+    const transacciones = await prisma.transaccion.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.json(transacciones);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/remesas/:jobId
+ * Obtiene el detalle y estado de una remesa por su ID.
+ */
+async function getRemesaStatus(req, res, next) {
+  try {
+    const userId = req.userId;
+    const id = parseInt(req.params.jobId, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    const record = await prisma.transaccion.findFirst({
+      where: { id, userId }
+    });
+
+    if (!record) {
+      return res.status(404).json({ error: 'Remesa no encontrada' });
+    }
+
+    return res.json(record);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  createRemesa,
+  listRemesas,
+  getRemesaStatus
+};
