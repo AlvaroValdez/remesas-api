@@ -1,5 +1,11 @@
 // src/queues/remesasQueue.js
 
+const { generateXdr }       = require('../services/stellarXdrClient');
+const { signTransaction }   = require('../services/stellarSigningClient');
+const { submitTransaction } = require('../services/stellarSubmitClient');
+const { depositAnchor }     = require('../services/depositAnchor');
+
+
 require('dotenv').config();
 const { Queue, Worker } = require('bullmq');
 const IORedis = require('ioredis');

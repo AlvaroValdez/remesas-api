@@ -1,71 +1,72 @@
-const remesasQueue = require('../queues/remesasQueue');
+// src/controllers/remesaController.js
+const { generateTransactionXdr } = require('../services/stellarXdrClient');
+const { signXdr } = require('../services/stellarSigningClient');
+const { submitToNetwork } = require('../services/stellarSubmitClient');
+// submitToNetwork sería un servicio que envía el XDR firmado a Horizon (usando tu propio Horizon client o Stellar SDK)
 
-// Encola la remesa para el usuario autenticado (req.userId)
-async function createRemesa(req, res) {
+async function createRemesa(req, res, next) {
+  const userToken = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (!userToken) {
+    return res.status(401).json({ error: 'Falta token de autorización' });
+  }
+
   try {
-    const monto = Number(req.body.monto);
-    if (isNaN(monto) || monto <= 0) {
-      return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
+    // 1. Extraer del body la data de la remesa que necesitamos para generar XDR
+    const { sourcePublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = req.body;
+    if (!sourcePublicKey || !destinationPublicKey || !assetCode || !amount) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios en solicitud' });
     }
-    const cuenta_destino = req.body.cuenta_destino;
-    if (!cuenta_destino) {
-      return res.status(400).json({ error: 'Falta cuenta_destino' });
-    }
-    const memo = req.body.memo || '';
-    // Posibilidad de recibir assetCode y assetIssuer en el body:
-    const assetCode = req.body.assetCode || 'XLM';
-    const assetIssuer = req.body.assetIssuer || null;
 
-    // Encolar job en BullMQ
-    const job = await remesasQueue.add('nueva-remesa', {
-      userId: req.userId,
-      monto,
-      cuenta_destino,
-      memo,
-      assetCode,
-      assetIssuer
+    // 2. Preparar el payload para el XDR Service
+    const operations = [
+      {
+        type: 'payment',
+        destination: destinationPublicKey,
+        asset: {
+          code: assetCode,
+          issuer: assetCode === 'XLM' ? null : assetIssuer,
+        },
+        amount: amount.toString(),
+      },
+    ];
+    const xdrPayload = { sourcePublicKey, memo, operations };
+
+    // 3. Llamar a stellar-xdr-service
+    const xdr = await generateTransactionXdr(userToken, xdrPayload);
+
+    // 4. Enviar el XDR al stellar-signing-service para firmarlo
+    const signedXdr = await signXdr(userToken, xdr);
+
+    // 5. (Opcional) Subir el XDR firmado a Horizon y obtener el hash de la transacción
+    //    Puedes usar Stellar SDK o tu propio servicio. Ejemplo con función submitToNetwork:
+    // const submitResponse = await submitToNetwork(signedXdr);
+
+    // 6. Guardar en base de datos la información de la remesa (puedes hacerlo aquí o después del envío real)
+    //    Ejemplo simplificado:
+    // const nuevaRemesa = await RemesaModel.create({
+    //   userId: req.user.id,
+    //   sourcePublicKey,
+    //   destinationPublicKey,
+    //   assetCode,
+    //   assetIssuer,
+    //   amount,
+    //   memo,
+    //   xdrUnsigned: xdr,
+    //   xdrSigned: signedXdr,
+    //   status: 'pending',
+    //   txHash: submitResponse.hash
+    // });
+
+    // 7. Responder al cliente con el resultado
+    return res.status(201).json({
+      message: 'Remesa creada exitosamente',
+      xdrUnsigned: xdr,
+      xdrSigned: signedXdr,
+      // txHash: submitResponse.hash
     });
-
-    console.log('[Controller] Job encolado con ID:', job.id);
-    return res.status(200).json({ jobId: job.id });
   } catch (err) {
-    console.error('[Controller] Error en createRemesa:', err);
-    return res.status(500).json({ error: 'Error al encolar la remesa' });
+    return next(err);
   }
 }
 
-// Lista todas las transacciones que pertenezcan al usuario (req.userId)
-async function listRemesas(req, res) {
-  try {
-    const remesas = await prisma.transaccion.findMany({
-      where: { userId: req.userId },
-      orderBy: { createdAt: 'desc' }
-    });
-    return res.json(remesas);
-  } catch (err) {
-    console.error('[Controller] Error en listRemesas:', err);
-    return res.status(500).json({ error: 'No se pudo listar remesas' });
-  }
-}
-
-// Devuelve estado (wait, active, completed, failed) de un job en BullMQ
-async function getRemesaStatus(req, res) {
-  try {
-    const jobId = req.params.jobId;
-    const { Worker } = require('bullmq');
-    const IORedis = require('ioredis');
-    const worker = new Worker(
-      'remesas',
-      () => {},
-      { connection: new IORedis(process.env.REDIS_URL) }
-    );
-    const job = await worker.getJob(jobId);
-    const state = job ? await job.getState() : 'not_found';
-    return res.json({ jobId, state });
-  } catch (err) {
-    console.error('[Controller] Error en getRemesaStatus:', err);
-    return res.status(500).json({ error: 'No se pudo obtener estado de la remesa' });
-  }
-}
-
-module.exports = { createRemesa, listRemesas, getRemesaStatus };
+module.exports = { createRemesa };
