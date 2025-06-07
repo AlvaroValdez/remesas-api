@@ -25,7 +25,7 @@ async function initDeposit(req, res) {
 
     // Llamada al Anchor SEP-24
     const response = await axios.post(
-      process.env.ANCHOR_DEPOSIT_URL,
+      process.env.ANCHOR_SERVICE_URL,
       payload,
       {
         headers: {

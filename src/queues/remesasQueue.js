@@ -1,5 +1,4 @@
 // src/queues/remesasQueue.js
-
 require('dotenv').config();
 const { Queue, Worker } = require('bullmq');
 const IORedis = require('ioredis');
@@ -10,29 +9,31 @@ const {
   REDIS_URL,
   XDR_SERVICE_URL,
   SIGNING_SERVICE_URL,
-  ANCHOR_DEPOSIT_URL,
+  ANCHOR_SERVICE_URL,
   ANCHOR_TOKEN
 } = process.env;
 
-// valida vars de entorno
+// Validación de variables de entorno
 if (!REDIS_URL) throw new Error('REDIS_URL no definido');
 if (!XDR_SERVICE_URL) throw new Error('XDR_SERVICE_URL no definido');
 if (!SIGNING_SERVICE_URL) throw new Error('SIGNING_SERVICE_URL no definido');
-if (!ANCHOR_DEPOSIT_URL) throw new Error('ANCHOR_DEPOSIT_URL no definido');
+if (!ANCHOR_SERVICE_URL) throw new Error('ANCHOR_DEPOSIT_URL no definido');
 if (!ANCHOR_TOKEN) throw new Error('ANCHOR_TOKEN no definido');
 
-// clients de servicios
+// Inicializa Redis y la cola
+const connection = new IORedis(REDIS_URL, {
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: true
+});
+const remesasQueue = new Queue('remesas', { connection });
+
+// Importa los clients que definiste en src/services
 const { generateXdr }       = require('../services/stellarXdrClient');
 const { signTransaction }   = require('../services/stellarSigningClient');
 const { submitTransaction } = require('../services/stellarSubmitClient');
 const { depositAnchor }     = require('../services/depositAnchor');
 
-const connection = new IORedis(REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableOfflineQueue: true
-});
-new Queue('remesas', { connection });
-
+// Worker que procesa jobs
 new Worker(
   'remesas',
   async (job) => {
@@ -41,7 +42,6 @@ new Worker(
     if (!userId || !monto || !cuenta_destino) {
       throw new Error('Datos incompletos en job');
     }
-
     // 1) Obtener publicKey
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -49,7 +49,7 @@ new Worker(
     });
     if (!user) throw new Error(`Usuario ${userId} no existe`);
 
-    // 2) Operación de pago
+    // 2) Construir operación
     const operation = {
       type: 'payment',
       asset: assetIssuer
@@ -73,7 +73,6 @@ new Worker(
     const txHash = await submitTransaction(signedXdr);
 
     // 6) Depósito en Anchor
-    // adaptamos al payload que depositAnchor espera (puedes ampliar con memoType, assetCode, etc)
     const anchorId = await depositAnchor({
       account: cuenta_destino,
       amount: monto.toString()
@@ -100,3 +99,6 @@ new Worker(
   },
   { connection }
 );
+
+// Exporta la cola para que remesaController pueda usar remesasQueue.add()
+module.exports = remesasQueue;
