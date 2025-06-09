@@ -6,6 +6,7 @@ const { authenticate } = require('./middleware/auth');
 
 // Asegurarnos de arrancar el Worker de remesas al iniciar la app:
 require('./queues/remesasQueue');
+
 // Rutas y middlewares
 const authRoutes = require('./routes/authRoutes');
 const remesaRoutes = require('./routes/remesaRoutes');

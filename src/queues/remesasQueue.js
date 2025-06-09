@@ -81,6 +81,7 @@ new Worker(
     // 7) Persistir en BD
     const record = await prisma.transaccion.create({
       data: {
+        jobId: job.id,
         userId,
         monto,
         commission: 0,
